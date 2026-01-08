@@ -1,5 +1,6 @@
 import asyncio
 import aiosqlite
+import random
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -11,7 +12,9 @@ TOKEN = '8270962231:AAEvTQSrzRuXYviR_LlgTKaBzoIZy9cyvrk'
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+# Добавляем user-agent и задержки
 L = instaloader.Instaloader()
+L.context._session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'})
 
 DB_NAME = 'users.db'
 SUBSCRIPTION_PRICE = 50
@@ -93,11 +96,16 @@ async def handle_username(message: types.Message):
     loading = await message.answer(f"🔍 Ищу @{username}...")
 
     try:
+        # Задержка перед запросом
+        await asyncio.sleep(random.uniform(2, 5))
+        
         profile = instaloader.Profile.from_username(L.context, username)
+        
         count = 0
         for post in profile.get_posts():
             if count >= 5:
                 break
+            await asyncio.sleep(random.uniform(1, 3))  # Задержка между постами
             if post.is_video:
                 await bot.send_video(message.chat.id, post.video_url, caption=f"@{username}")
             else:
@@ -112,12 +120,16 @@ async def handle_username(message: types.Message):
         if status == 'trial':
             await message.answer("🌟 Trial на сегодня. Завтра — подписка")
 
-    except instaloader.exceptions.ProfileNotExistsException:
-        await loading.edit_text("❌ Аккаунт не найден")
+    except instaloader.exceptions.LoginRequiredException:
+        await loading.edit_text("🚫 Instagram временно блокирует запросы. Попробуй через 10–15 минут.")
+    except instaloader.exceptions.ConnectionException:
+        await loading.edit_text("🌐 Проблема с соединением. Попробуй позже.")
     except instaloader.exceptions.PrivateProfileNotFollowedException:
         await loading.edit_text("🔒 Приватный аккаунт — только публичные")
-    except Exception:
-        await loading.edit_text("🚫 Ошибка, попробуй позже")
+    except instaloader.exceptions.ProfileNotExistsException:
+        await loading.edit_text("❌ Аккаунт не найден")
+    except Exception as e:
+        await loading.edit_text("🚫 Ошибка, попробуй позже или другой ник")
 
 async def main():
     await init_db()
