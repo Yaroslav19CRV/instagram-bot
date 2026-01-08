@@ -12,9 +12,11 @@ TOKEN = '8270962231:AAEvTQSrzRuXYviR_LlgTKaBzoIZy9cyvrk'
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Добавляем user-agent и задержки
+# Имитация мобильного браузера + задержки
 L = instaloader.Instaloader()
-L.context._session.headers.update({'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'})
+L.context._session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+})
 
 DB_NAME = 'users.db'
 SUBSCRIPTION_PRICE = 50
@@ -93,11 +95,11 @@ async def handle_username(message: types.Message):
         return
 
     username = message.text.strip().lstrip('@').lower()
-    loading = await message.answer(f"🔍 Ищу @{username}...")
+    loading = await message.answer(f"🔍 Ищу @{username}... Пожалуйста, подожди 10–20 сек")
 
     try:
         # Задержка перед запросом
-        await asyncio.sleep(random.uniform(2, 5))
+        await asyncio.sleep(random.uniform(3, 7))
         
         profile = instaloader.Profile.from_username(L.context, username)
         
@@ -105,31 +107,29 @@ async def handle_username(message: types.Message):
         for post in profile.get_posts():
             if count >= 5:
                 break
-            await asyncio.sleep(random.uniform(1, 3))  # Задержка между постами
+            await asyncio.sleep(random.uniform(2, 4))  # Задержка между постами
             if post.is_video:
-                await bot.send_video(message.chat.id, post.video_url, caption=f"@{username}")
+                await bot.send_video(message.chat.id, post.video_url, caption=f"@{username} • {post.caption[:100] if post.caption else ''}")
             else:
-                await bot.send_photo(message.chat.id, post.url, caption=f"@{username}")
+                await bot.send_photo(message.chat.id, post.url, caption=f"@{username} • {post.caption[:100] if post.caption else ''}")
             count += 1
         
         if count == 0:
             await loading.edit_text("😔 Нет постов или аккаунт приватный")
         else:
-            await loading.edit_text(f"✅ Отправил {count} постов от @{username}")
+            await loading.edit_text(f"✅ Отправил {count} последних постов от @{username}!")
         
         if status == 'trial':
-            await message.answer("🌟 Trial на сегодня. Завтра — подписка")
+            await message.answer("🌟 У тебя trial на сегодня. Завтра потребуется подписка.")
 
-    except instaloader.exceptions.LoginRequiredException:
-        await loading.edit_text("🚫 Instagram временно блокирует запросы. Попробуй через 10–15 минут.")
     except instaloader.exceptions.ConnectionException:
-        await loading.edit_text("🌐 Проблема с соединением. Попробуй позже.")
+        await loading.edit_text("🌐 Проблема с соединением Instagram. Попробуй через 5–10 минут или другой ник.")
     except instaloader.exceptions.PrivateProfileNotFollowedException:
-        await loading.edit_text("🔒 Приватный аккаунт — только публичные")
+        await loading.edit_text("🔒 Аккаунт приватный — работает только с публичными.")
     except instaloader.exceptions.ProfileNotExistsException:
-        await loading.edit_text("❌ Аккаунт не найден")
-    except Exception as e:
-        await loading.edit_text("🚫 Ошибка, попробуй позже или другой ник")
+        await loading.edit_text("❌ Аккаунт не найден.")
+    except Exception:
+        await loading.edit_text("🚫 Временная ошибка. Попробуй позже.")
 
 async def main():
     await init_db()
